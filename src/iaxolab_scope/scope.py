@@ -20,7 +20,7 @@ class Scope:
 
         self._osc.read_termination = "\n"
         self._osc.write_termination = "\n"
-        self._osc.timeout = 5000
+        self._osc.timeout = 1000
 
         identifier = self._osc.query("*IDN?")
         print(f"Connected to '{identifier}' at '{self._osc!s}'")
@@ -33,4 +33,30 @@ class Scope:
         return self._osc.write(message, *args, **kwargs)
 
     def query(self, message: str, *args, **kwargs) -> str:
-        return self._osc.query(message, *args, **kwargs)
+        return self._osc.query(message, *args, **kwargs).rstrip("\n")
+
+    @property
+    def trigger_type(self) -> str:
+        return self.query(":TRIG:TYPE?")
+
+    @trigger_type.setter
+    def trigger_type(self, value: str):
+        self.write(f":TRIG:TYPE {value}")
+
+    @property
+    def trigger_mode(self) -> str:
+        return self.query(":TRIG:MODE?")
+
+    @trigger_mode.setter
+    def trigger_mode(self, value: str):
+        allowed_values = ["NORMAL", "AUTO", "SINGLE", "FTRIG"]
+        if value.upper() not in allowed_values:
+            raise ValueError(f"Trigger mode must be one of '{allowed_values}' but got '{value}' instead")
+
+        self.write(f":TRIG:MODE {value}")
+
+    def stop(self):
+        self.write(":TRIG:STOP")
+
+    def run(self):
+        self.write(":TRIG:RUN")
