@@ -1,4 +1,3 @@
-import math
 import struct
 
 import numpy as np
@@ -70,7 +69,7 @@ def parse_waveform_preamble_header(preamble: bytes) -> dict:
 def read_single_frame(scope, frame_number: int):
     scope.waveform_start = 0
     scope.waveform_points = 0
-    scope.waveform_sequence = (frame_number, 0)  # the error is probably here. All waveforms are the same
+    scope.waveform_sequence = (1, frame_number)
     preamble = scope.waveform_preamble
 
     points_one_frame = preamble["one_fram_pts"]
