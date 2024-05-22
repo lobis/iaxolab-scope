@@ -162,20 +162,45 @@ class Scope:
         self.write(f":WAV:WIDTH {value}")
 
     @property
-    def acquisition_sequence(self) -> bool:
+    def acquire_sequence(self) -> bool:
         return self.query("ACQ:SEQ?") == "ON"
 
-    @acquisition_sequence.setter
-    def acquisition_sequence(self, value: bool):
+    @acquire_sequence.setter
+    def acquire_sequence(self, value: bool):
         self.write("ACQ:SEQ ON" if value else "ACQ:SEQ OFF")
 
     @property
-    def acquisition_sequence_count(self) -> int:
+    def acquire_points(self) -> int:
+        return int(float(self.query("ACQ:POINTS?")))  # float to handle scientific notation
+
+    @property
+    def acquire_memory_depth(self) -> str:
+        return self.query("ACQ:MDEPTH?")
+
+    @acquire_memory_depth.setter
+    def acquire_memory_depth(self, value: str):
+        # values such as "5k", "10k", "1M", etc. (depends on the model)
+        self.write(f"ACQ:MDEPTH {value}")
+        # check if the value was set correctly
+        if self.acquire_memory_depth != value:
+            raise ValueError(
+                f"Failed to set memory depth to {value}. "
+                f"Current value: {self.acquire_memory_depth}. "
+                f"The requested value may not be available on this model"
+            )
+
+    @property
+    def acquire_number(self) -> int:
+        return int(self.query("ACQ:NUMA?"))
+
+    @property
+    def acquire_sequence_count(self) -> int:
         return int(self.query("ACQ:SEQ:COUNT?"))
 
-    @acquisition_sequence_count.setter
-    def acquisition_sequence_count(self, value: int):
+    @acquire_sequence_count.setter
+    def acquire_sequence_count(self, value: int):
         self.write(f"ACQ:SEQ:COUNT {value}")
 
-    def data(self):
-        return self.query_binary_values(":WAV:DATA?", datatype="B", is_big_endian=True)
+    def data_raw(self) -> bytes:
+        self.write(":WAV:DATA?")
+        return self._osc.read_raw()
