@@ -197,9 +197,58 @@ class Scope:
     def acquire_sequence_count(self) -> int:
         return int(self.query("ACQ:SEQ:COUNT?"))
 
+    @property
+    def trigger_edge_source(self) -> str:
+        return self.query("TRIG:A:EDGE:SOURCE?")
+
+    @trigger_edge_source.setter
+    def trigger_edge_source(self, value: str):
+        self.write(f"TRIG:A:EDGE:SOURCE {value}")
+
+    @property
+    def trigger_edge_source_channel(self) -> int | None:
+        source = self.trigger_edge_source
+        if source.startswith("C"):
+            return int(source[1:])
+        return None
+
+    @property
+    def trigger_edge_slope(self) -> str:
+        return self.query("TRIG:A:EDGE:SLOPE?")
+
+    @trigger_edge_slope.setter
+    def trigger_edge_slope(self, value: str):
+        self.write(f"TRIG:A:EDGE:SLOPE {value}")
+
+    @trigger_edge_source_channel.setter
+    def trigger_edge_source_channel(self, channel: int):
+        self.trigger_edge_source = f"C{channel}"
+
     @acquire_sequence_count.setter
     def acquire_sequence_count(self, value: int):
         self.write(f"ACQ:SEQ:COUNT {value}")
+
+    @property
+    def timebase_scale(self) -> float:
+        return float(self.query("TIMEBASE:SCALE?"))
+
+    @timebase_scale.setter
+    def timebase_scale(self, value: float):
+        self.write(f"TIMEBASE:SCALE {value}")
+
+    @property
+    def timebase_delay(self) -> float:
+        return float(self.query("TIMEBASE:DELAY?"))
+
+    @timebase_delay.setter
+    def timebase_delay(self, value: float):
+        self.write(f"TIMEBASE:DELAY {value:.2E}")
+
+    def query_channel_scale(self, channel: int) -> float:
+        return float(self.query(f"CH{channel}:SCALE?"))
+
+    def set_channel_scale(self, channel: int, value: float):
+        self.write(f"CH{channel}:SCALE {value:.2E}")
 
     def data_raw(self) -> bytes:
         self.write(":WAV:DATA?")
