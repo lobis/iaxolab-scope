@@ -1,6 +1,8 @@
 import math
 import struct
 
+import numpy as np
+
 TDIV_ENUM = [100e-12, 200e-12, 500e-12,
              1e-9, 2e-9, 5e-9, 10e-9, 20e-9, 50e-9, 100e-9, 200e-9, 500e-9,
              1e-6, 2e-6, 5e-6, 10e-6, 20e-6, 50e-6, 100e-6, 200e-6, 500e-6,
@@ -68,7 +70,7 @@ def parse_waveform_preamble_header(preamble: bytes) -> dict:
 def read_single_frame(scope, frame_number: int):
     scope.waveform_start = 0
     scope.waveform_points = 0
-    scope.waveform_sequence = (frame_number, 0)
+    scope.waveform_sequence = (frame_number, 0)  # the error is probably here. All waveforms are the same
     preamble = scope.waveform_preamble
 
     points_one_frame = preamble["one_fram_pts"]
@@ -81,7 +83,9 @@ def read_single_frame(scope, frame_number: int):
     if adc_bytes > 8:
         scope.waveform_width = "WORD"
 
-    read_times = math.ceil(points_one_frame / points_max)
+    # scope.waveform_width = "BYTE"
+
+    read_times = points_one_frame // points_max + 1
     data = b""
 
     for i in range(read_times):
@@ -94,11 +98,13 @@ def read_single_frame(scope, frame_number: int):
         data_start = block_start + 2 + data_digit
         data += block_data[data_start:]
 
-    struct_string = "%dh" if adc_bytes > 8 else "%db"
-    data = struct.unpack(struct_string % len(data), data)
+    if adc_bytes > 8:
+        data = struct.unpack("%dh" % (len(data) // 2), data)
+    else:
+        data = struct.unpack("%db" % len(data), data)
 
-    voltage_values = []
-    time_values = []
+    voltage_values = np.zeros(len(data))
+    time_values = np.zeros(len(data))
 
     vdiv = preamble["vdiv"]
     offset = preamble["offset"]
@@ -110,7 +116,7 @@ def read_single_frame(scope, frame_number: int):
     HORI_NUM = 10  # number of horizontal divisions (model specific?)
 
     for i in range(len(data)):
-        voltage_values.append(data[i] / code * float(vdiv) - float(offset))
-        time_values.append(-(float(tdiv) * HORI_NUM / 2) + i * interval + delay)
+        voltage_values[i] = data[i] / code * float(vdiv) - float(offset)
+        time_values[i] = -(float(tdiv) * HORI_NUM / 2) + i * interval + delay
 
     return time_values, voltage_values
