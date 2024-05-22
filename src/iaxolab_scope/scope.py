@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pyvisa as visa
 
+from iaxolab_scope.waveform import parse_waveform_preamble_header
+
 
 class Scope:
     def __init__(self, name: str = "SDS7AA1D7R0092"):
@@ -23,7 +25,8 @@ class Scope:
 
         self._osc.read_termination = "\n"
         self._osc.write_termination = "\n"
-        self._osc.timeout = 1000
+        self._osc.timeout = 2000
+        self._osc.chunk_size = 20 * 1024 * 1024
 
         # close it to avoid leaving it open, the user can open it when needed
         self.close()
@@ -113,6 +116,50 @@ class Scope:
     @waveform_source_channel.setter
     def waveform_source_channel(self, channel: int):
         self.waveform_source = f"C{channel}"
+
+    @property
+    def waveform_start(self) -> int:
+        return int(self.query(":WAV:START?"))
+
+    @waveform_start.setter
+    def waveform_start(self, value: int):
+        self.write(f":WAV:START {value}")
+
+    @property
+    def waveform_points(self) -> int:
+        return int(self.query(":WAV:POINT?"))
+
+    @waveform_points.setter
+    def waveform_points(self, value: int):
+        self.write(f":WAV:POINT {value}")
+
+    @property
+    def waveform_sequence(self) -> (int, int):
+        data = self.query(":WAV:SEQUENCE?")
+        print(data)
+        return tuple(map(int, data.split(",")))
+
+    @waveform_sequence.setter
+    def waveform_sequence(self, value: (int, int)):
+        self.write(f":WAV:SEQUENCE {value[0]},{value[1]}")
+
+    @property
+    def waveform_preamble_bytes(self) -> bytes:
+        self.write(":WAV:PRE?")
+        preamble = self._osc.read_raw()
+        return preamble[preamble.find(b'#') + 11:]
+
+    @property
+    def waveform_preamble(self) -> dict:
+        return parse_waveform_preamble_header(self.waveform_preamble_bytes)
+
+    @property
+    def waveform_width(self) -> str:
+        return self.query(":WAV:WIDTH?")
+
+    @waveform_width.setter
+    def waveform_width(self, value: str):
+        self.write(f":WAV:WIDTH {value}")
 
     @property
     def acquisition_sequence(self) -> bool:
