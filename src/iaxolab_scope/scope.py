@@ -113,6 +113,10 @@ class Scope:
             return int(source[1:])
         return None
 
+    @property
+    def waveform_max_points(self) -> int:
+        return int(self.query(":WAV:MAXP?"))
+
     @waveform_source_channel.setter
     def waveform_source_channel(self, channel: int):
         self.waveform_source = f"C{channel}"
@@ -144,14 +148,14 @@ class Scope:
         self.write(f":WAV:SEQUENCE {value[0]},{value[1]}")
 
     @property
-    def waveform_preamble_bytes(self) -> bytes:
+    def _waveform_preamble_bytes(self) -> bytes:
         self.write(":WAV:PRE?")
         preamble = self._osc.read_raw()
         return preamble[preamble.find(b'#') + 11:]
 
     @property
     def waveform_preamble(self) -> dict:
-        return parse_waveform_preamble_header(self.waveform_preamble_bytes)
+        return parse_waveform_preamble_header(self._waveform_preamble_bytes)
 
     @property
     def waveform_width(self) -> str:

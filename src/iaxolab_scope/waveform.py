@@ -1,3 +1,4 @@
+import math
 import struct
 
 TDIV_ENUM = [100e-12, 200e-12, 500e-12,
@@ -62,3 +63,54 @@ def parse_waveform_preamble_header(preamble: bytes) -> dict:
         "read_frame": read_frame,
         "sum_frame": sum_frame
     }
+
+
+def read_single_frame(scope, frame_number: int):
+    scope.waveform_start = 0
+    scope.waveform_points = 0
+    scope.waveform_sequence = (frame_number, 0)
+    preamble = scope.waveform_preamble
+
+    points_one_frame = preamble["one_fram_pts"]
+    adc_bytes = preamble["adc_bit"]
+    points_max = scope.waveform_max_points
+
+    if points_one_frame > points_max:
+        scope.waveform_points = points_max
+
+    if adc_bytes > 8:
+        scope.waveform_width = "WORD"
+
+    read_times = math.ceil(points_one_frame / points_max)
+    data = b""
+
+    for i in range(read_times):
+        start = i * points_max
+        scope.waveform_start = start
+        scope.write(":WAV:DATA?")
+        block_data = scope._osc.read_raw().rstrip()
+        block_start = block_data.find(b'#')
+        data_digit = int(block_data[block_start + 1: block_start + 2])
+        data_start = block_start + 2 + data_digit
+        data += block_data[data_start:]
+
+    struct_string = "%dh" if adc_bytes > 8 else "%db"
+    data = struct.unpack(struct_string % len(data), data)
+
+    voltage_values = []
+    time_values = []
+
+    vdiv = preamble["vdiv"]
+    offset = preamble["offset"]
+    tdiv = preamble["tdiv"]
+    interval = preamble["interval"]
+    delay = preamble["delay"]
+    code = preamble["code"]
+
+    HORI_NUM = 10  # number of horizontal divisions (model specific?)
+
+    for i in range(len(data)):
+        voltage_values.append(data[i] / code * float(vdiv) - float(offset))
+        time_values.append(-(float(tdiv) * HORI_NUM / 2) + i * interval + delay)
+
+    return time_values, voltage_values
